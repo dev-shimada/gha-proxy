@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 
@@ -67,7 +68,7 @@ func New(audience string) (*Verifier, error) {
 }
 
 func (v *Verifier) Verify(ctx context.Context, tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -98,14 +99,7 @@ func (v *Verifier) Verify(ctx context.Context, tokenString string) (*Claims, err
 		return nil, fmt.Errorf("invalid issuer: %s", claims.Issuer)
 	}
 
-	audienceValid := false
-	for _, aud := range claims.Audience {
-		if aud == v.audience {
-			audienceValid = true
-			break
-		}
-	}
-	if !audienceValid {
+	if !slices.Contains(claims.Audience, v.audience) {
 		return nil, fmt.Errorf("invalid audience: expected %s", v.audience)
 	}
 
@@ -157,7 +151,7 @@ func (c *jwksCache) refresh(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to fetch JWKS: status %d", resp.StatusCode)
