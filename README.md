@@ -127,7 +127,3 @@ curl http://localhost:8080/github.com/myorg/myrepo/@v/list
 curl -H "Authorization: Bearer $TOKEN" \
      http://localhost:8080/github.com/myorg/myrepo/@v/list
 ```
-
-## License
-
-MIT
