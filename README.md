@@ -4,17 +4,17 @@ A secure Go module proxy that authenticates requests using GitHub Actions OIDC t
 
 ## Features
 
-- **IP Whitelist**: Allow requests from specific IP addresses/CIDR ranges without authentication
-- **OIDC Authentication**: Verify GitHub Actions OIDC tokens for non-whitelisted requests
+- **IP Bypass List**: Allow requests from specific IP addresses/CIDR ranges without authentication
+- **OIDC Authentication**: Verify GitHub Actions OIDC tokens for non-bypassed requests
 - **Repository Matching**: Ensure the requested module matches the authenticated repository
 - **Reverse Proxy**: Forward authenticated requests to a backend Go module proxy
 
 ## Architecture
 
 ```
-Request → IP Whitelist Check → Token Verification → Repository Matching → Proxy to Backend
-         ↓ (whitelisted)       ↓ (no token/invalid)  ↓ (mismatch)
-         Pass                   401 Unauthorized       403 Forbidden
+Request → IP Bypass Check → Token Verification → Repository Matching → Proxy to Backend
+         ↓ (bypassed)       ↓ (no token/invalid)  ↓ (mismatch)
+         Pass                401 Unauthorized       403 Forbidden
 ```
 
 ## Configuration
@@ -24,7 +24,7 @@ Configure the proxy using environment variables:
 | Variable | Required | Description | Example |
 |----------|----------|-------------|---------|
 | `PORT` | No | Server port (default: 8080) | `8080` |
-| `IP_WHITELIST` | No | Comma-separated IP/CIDR whitelist | `127.0.0.1,192.168.1.0/24` |
+| `BYPASS_IP_LIST` | No | Comma-separated IP/CIDR bypass list | `127.0.0.1,192.168.1.0/24` |
 | `AUDIENCE` | Yes | OIDC token audience | `https://goproxy.example.com` |
 | `GOPROXY_URL` | Yes | Backend proxy URL | `https://proxy.golang.org` |
 
@@ -110,10 +110,10 @@ jobs:
 
 ## Testing
 
-### IP Whitelist Test
+### IP Bypass List Test
 
 ```bash
-# From whitelisted IP (should succeed)
+# From bypassed IP (should succeed)
 curl http://localhost:8080/golang.org/x/text/@v/list
 ```
 

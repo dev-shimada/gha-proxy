@@ -32,9 +32,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	ipWhitelist, err := middleware.NewIPWhitelist(cfg.IPWhitelist)
+	bypassIPList, err := middleware.NewBypassIPList(cfg.BypassIPList)
 	if err != nil {
-		slog.Error("failed to create IP whitelist", "error", err)
+		slog.Error("failed to create bypass IP list", "error", err)
 		os.Exit(1)
 	}
 
@@ -52,8 +52,8 @@ func main() {
 			remoteIP = forwarded
 		}
 
-		if ipWhitelist.IsWhitelisted(r) {
-			slog.Info("request allowed by IP whitelist",
+		if bypassIPList.IsBypassed(r) {
+			slog.Info("request allowed by bypass IP list",
 				"remote_ip", remoteIP,
 				"path", r.URL.Path,
 			)

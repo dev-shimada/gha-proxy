@@ -2,13 +2,13 @@
 
 ## Quick Local Test
 
-Test the proxy locally with whitelisted IPs:
+Test the proxy locally with bypassed IPs:
 
 ```bash
 ./test-local.sh
 ```
 
-This will verify that the proxy forwards requests correctly for whitelisted IPs.
+This will verify that the proxy forwards requests correctly for bypassed IPs.
 
 ## Production Deployment
 
@@ -23,7 +23,7 @@ docker build -t gha-proxy .
 # Run
 docker run -p 8080:8080 \
   -e PORT=8080 \
-  -e IP_WHITELIST="10.0.0.0/8" \
+  -e BYPASS_IP_LIST="10.0.0.0/8" \
   -e AUDIENCE="https://your-domain.com" \
   -e GOPROXY_URL="https://proxy.golang.org" \
   gha-proxy
@@ -41,7 +41,7 @@ gcloud run deploy gha-proxy \
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars="IP_WHITELIST=,AUDIENCE=https://gha-proxy-xxx.run.app,GOPROXY_URL=https://proxy.golang.org"
+  --set-env-vars="BYPASS_IP_LIST=,AUDIENCE=https://gha-proxy-xxx.run.app,GOPROXY_URL=https://proxy.golang.org"
 ```
 
 ### Option 3: Fly.io
@@ -76,7 +76,7 @@ Deploy:
 ```bash
 # Set secrets
 fly secrets set AUDIENCE="https://gha-proxy.fly.dev"
-fly secrets set IP_WHITELIST=""
+fly secrets set BYPASS_IP_LIST=""
 
 # Deploy
 fly deploy
@@ -91,7 +91,7 @@ heroku create gha-proxy
 # Set config
 heroku config:set GOPROXY_URL=https://proxy.golang.org
 heroku config:set AUDIENCE=https://gha-proxy.herokuapp.com
-heroku config:set IP_WHITELIST=""
+heroku config:set BYPASS_IP_LIST=""
 
 # Deploy
 git push heroku main
@@ -127,14 +127,14 @@ steps:
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `PORT` | Server port | `8080` |
-| `IP_WHITELIST` | Comma-separated IPs/CIDRs | `192.168.1.0/24,10.0.0.1` |
+| `BYPASS_IP_LIST` | Comma-separated IPs/CIDRs | `192.168.1.0/24,10.0.0.1` |
 | `AUDIENCE` | OIDC token audience (your proxy URL) | `https://gha-proxy.example.com` |
 | `GOPROXY_URL` | Backend Go proxy URL | `https://proxy.golang.org` |
 
 ## Security Considerations
 
 1. **Always use HTTPS in production** - The proxy forwards authentication tokens
-2. **Set appropriate IP_WHITELIST** - Only include trusted networks
+2. **Set appropriate BYPASS_IP_LIST** - Only include trusted networks
 3. **AUDIENCE must match your deployed URL** - This prevents token replay attacks
 4. **Monitor logs** - Use structured logging to track authentication failures
 5. **Set resource limits** - Configure timeouts and rate limiting in production
@@ -152,7 +152,7 @@ Test from GitHub Actions:
     go list -m -versions github.com/${{ github.repository }}
 ```
 
-Test from local machine (should fail unless IP whitelisted):
+Test from local machine (should fail unless IP bypassed):
 
 ```bash
 # Should return 401 Unauthorized

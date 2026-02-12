@@ -9,7 +9,7 @@ import (
 
 type Config struct {
 	Port         int
-	IPWhitelist  []string
+	BypassIPList []string
 	Audience     string
 	GoproxyURL   string
 }
@@ -24,12 +24,12 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid PORT: %w", err)
 	}
 
-	ipWhitelistStr := os.Getenv("IP_WHITELIST")
-	var ipWhitelist []string
-	if ipWhitelistStr != "" {
-		ipWhitelist = strings.Split(ipWhitelistStr, ",")
-		for i, ip := range ipWhitelist {
-			ipWhitelist[i] = strings.TrimSpace(ip)
+	bypassIPListStr := os.Getenv("BYPASS_IP_LIST")
+	var bypassIPList []string
+	if bypassIPListStr != "" {
+		bypassIPList = strings.Split(bypassIPListStr, ",")
+		for i, ip := range bypassIPList {
+			bypassIPList[i] = strings.TrimSpace(ip)
 		}
 	}
 
@@ -44,9 +44,9 @@ func Load() (*Config, error) {
 	}
 
 	return &Config{
-		Port:        port,
-		IPWhitelist: ipWhitelist,
-		Audience:    audience,
-		GoproxyURL:  goproxyURL,
+		Port:         port,
+		BypassIPList: bypassIPList,
+		Audience:     audience,
+		GoproxyURL:   goproxyURL,
 	}, nil
 }

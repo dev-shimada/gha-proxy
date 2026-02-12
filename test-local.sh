@@ -3,7 +3,7 @@ set -e
 
 echo "Starting gha-proxy server in background..."
 export PORT=8080
-export IP_WHITELIST=127.0.0.1,::1
+export BYPASS_IP_LIST=127.0.0.1,::1
 export AUDIENCE=https://localhost:8080
 export GOPROXY_URL=https://proxy.golang.org
 
@@ -14,11 +14,11 @@ SERVER_PID=$!
 sleep 2
 
 echo ""
-echo "Testing proxy from whitelisted IP (localhost)..."
+echo "Testing proxy from bypassed IP (localhost)..."
 GOPROXY=http://localhost:8080 go list -m -versions github.com/golang-jwt/jwt/v5
 
 echo ""
-echo "✅ Test passed! Proxy is working for whitelisted IPs"
+echo "✅ Test passed! Proxy is working for bypassed IPs"
 echo ""
 echo "To test with OIDC tokens, you need to:"
 echo "1. Deploy the proxy to a public URL"
