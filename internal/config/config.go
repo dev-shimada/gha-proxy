@@ -8,10 +8,11 @@ import (
 )
 
 type Config struct {
-	Port         int
-	BypassIPList []string
-	Audience     string
-	GoproxyURL   string
+	Port                 int
+	BypassIPList         []string
+	Audience             string
+	GoproxyURL           string
+	AllowedRepositories  []string
 }
 
 func Load() (*Config, error) {
@@ -43,10 +44,22 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("GOPROXY_URL is required")
 	}
 
+	allowedReposStr := os.Getenv("ALLOWED_REPOSITORIES")
+	var allowedRepositories []string
+	if allowedReposStr != "" {
+		allowedRepositories = strings.Split(allowedReposStr, ",")
+		for i, repo := range allowedRepositories {
+			allowedRepositories[i] = strings.TrimSpace(repo)
+		}
+	} else {
+		allowedRepositories = []string{"*"}
+	}
+
 	return &Config{
-		Port:         port,
-		BypassIPList: bypassIPList,
-		Audience:     audience,
-		GoproxyURL:   goproxyURL,
+		Port:                port,
+		BypassIPList:        bypassIPList,
+		Audience:            audience,
+		GoproxyURL:          goproxyURL,
+		AllowedRepositories: allowedRepositories,
 	}, nil
 }

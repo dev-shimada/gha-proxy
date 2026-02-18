@@ -47,3 +47,33 @@ func MatchesRepository(modulePath, claimRepository string) (bool, error) {
 
 	return moduleRepo == claimRepository, nil
 }
+
+func IsAllowedRepository(modulePath string, allowedPatterns []string) (bool, error) {
+	moduleRepo, err := ExtractRepository(modulePath)
+	if err != nil {
+		return false, err
+	}
+
+	moduleRepo = strings.ToLower(moduleRepo)
+
+	for _, pattern := range allowedPatterns {
+		pattern = strings.ToLower(strings.TrimSpace(pattern))
+
+		if pattern == "*" {
+			return true, nil
+		}
+
+		if owner, ok := strings.CutSuffix(pattern, "/*"); ok {
+			moduleOwner := strings.Split(moduleRepo, "/")[0]
+			if owner == moduleOwner {
+				return true, nil
+			}
+		} else {
+			if pattern == moduleRepo {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}

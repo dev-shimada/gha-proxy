@@ -6,14 +6,14 @@ A secure Go module proxy that authenticates requests using GitHub Actions OIDC t
 
 - **IP Bypass List**: Allow requests from specific IP addresses/CIDR ranges without authentication
 - **OIDC Authentication**: Verify GitHub Actions OIDC tokens for non-bypassed requests
-- **Repository Matching**: Ensure the requested module matches the authenticated repository
+- **Repository Filtering**: Control access to specific repositories using pattern matching
 - **Reverse Proxy**: Forward authenticated requests to a backend Go module proxy
 
 ## Architecture
 
 ```
-Request → IP Bypass Check → Token Verification → Repository Matching → Proxy to Backend
-         ↓ (bypassed)       ↓ (no token/invalid)  ↓ (mismatch)
+Request → IP Bypass Check → Token Verification → Repository Filter → Proxy to Backend
+         ↓ (bypassed)       ↓ (no token/invalid)  ↓ (not allowed)
          Pass                401 Unauthorized       403 Forbidden
 ```
 
@@ -27,6 +27,34 @@ Configure the proxy using environment variables:
 | `BYPASS_IP_LIST` | No | Comma-separated IP/CIDR bypass list | `127.0.0.1,192.168.1.0/24` |
 | `AUDIENCE` | Yes | OIDC token audience | `https://goproxy.example.com` |
 | `GOPROXY_URL` | Yes | Backend proxy URL | `https://proxy.golang.org` |
+| `ALLOWED_REPOSITORIES` | No | Repository access patterns (default: `*`) | `dev-shimada/*,owner/repo1` |
+
+### Repository Access Patterns
+
+The `ALLOWED_REPOSITORIES` variable controls which repositories can be accessed through the proxy. It accepts comma-separated patterns:
+
+- `*` - Allow all repositories (default)
+- `owner/*` - Allow all repositories under a specific owner
+- `owner/repo` - Allow a specific repository
+- `owner1/*,owner2/repo1,owner2/repo2` - Combine multiple patterns
+
+**Examples:**
+
+```bash
+# Allow all repositories
+ALLOWED_REPOSITORIES=*
+
+# Allow all repositories from dev-shimada
+ALLOWED_REPOSITORIES=dev-shimada/*
+
+# Allow specific repositories
+ALLOWED_REPOSITORIES=dev-shimada/package1,dev-shimada/package2
+
+# Allow multiple owners and specific repositories
+ALLOWED_REPOSITORIES=dev-shimada/*,otherowner/shared-lib
+```
+
+**Note:** The repository check is performed against the module path being requested, not the GitHub Actions workflow repository. For example, if a workflow in `otherowner/app` requests `github.com/dev-shimada/private-package`, the pattern must include `dev-shimada/private-package` or `dev-shimada/*` for access to be granted.
 
 ## Usage
 

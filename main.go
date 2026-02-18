@@ -83,9 +83,9 @@ func main() {
 			return
 		}
 
-		matches, err := matcher.MatchesRepository(modulePath, claims.Repository)
+		allowed, err := matcher.IsAllowedRepository(modulePath, cfg.AllowedRepositories)
 		if err != nil {
-			slog.Warn("failed to match repository",
+			slog.Warn("failed to check allowed repository",
 				"remote_ip", remoteIP,
 				"path", r.URL.Path,
 				"module_path", modulePath,
@@ -96,12 +96,13 @@ func main() {
 			return
 		}
 
-		if !matches {
-			slog.Warn("repository mismatch",
+		if !allowed {
+			slog.Warn("repository not allowed",
 				"remote_ip", remoteIP,
 				"path", r.URL.Path,
 				"module_path", modulePath,
 				"claim_repository", claims.Repository,
+				"allowed_patterns", cfg.AllowedRepositories,
 			)
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return

@@ -156,3 +156,90 @@ func TestMatchesRepository(t *testing.T) {
 		})
 	}
 }
+
+func TestIsAllowedRepository(t *testing.T) {
+	tests := []struct {
+		name            string
+		modulePath      string
+		allowedPatterns []string
+		want            bool
+		wantErr         bool
+	}{
+		{
+			name:            "wildcard allows all",
+			modulePath:      "github.com/myorg/myrepo",
+			allowedPatterns: []string{"*"},
+			want:            true,
+			wantErr:         false,
+		},
+		{
+			name:            "exact match",
+			modulePath:      "github.com/dev-shimada/package1",
+			allowedPatterns: []string{"dev-shimada/package1"},
+			want:            true,
+			wantErr:         false,
+		},
+		{
+			name:            "multiple exact matches",
+			modulePath:      "github.com/dev-shimada/package2",
+			allowedPatterns: []string{"dev-shimada/package1", "dev-shimada/package2"},
+			want:            true,
+			wantErr:         false,
+		},
+		{
+			name:            "owner wildcard match",
+			modulePath:      "github.com/dev-shimada/any-package",
+			allowedPatterns: []string{"dev-shimada/*"},
+			want:            true,
+			wantErr:         false,
+		},
+		{
+			name:            "owner wildcard with subpath",
+			modulePath:      "github.com/dev-shimada/package/subpath",
+			allowedPatterns: []string{"dev-shimada/*"},
+			want:            true,
+			wantErr:         false,
+		},
+		{
+			name:            "mixed patterns",
+			modulePath:      "github.com/otherowner/shared-lib",
+			allowedPatterns: []string{"dev-shimada/*", "otherowner/shared-lib"},
+			want:            true,
+			wantErr:         false,
+		},
+		{
+			name:            "no match",
+			modulePath:      "github.com/other/package",
+			allowedPatterns: []string{"dev-shimada/*"},
+			want:            false,
+			wantErr:         false,
+		},
+		{
+			name:            "case insensitive",
+			modulePath:      "github.com/Dev-Shimada/Package1",
+			allowedPatterns: []string{"dev-shimada/package1"},
+			want:            true,
+			wantErr:         false,
+		},
+		{
+			name:            "whitespace trimming",
+			modulePath:      "github.com/dev-shimada/package1",
+			allowedPatterns: []string{" dev-shimada/package1 "},
+			want:            true,
+			wantErr:         false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := IsAllowedRepository(tt.modulePath, tt.allowedPatterns)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("IsAllowedRepository() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("IsAllowedRepository() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
