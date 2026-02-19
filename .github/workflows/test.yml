@@ -45,12 +45,29 @@ jobs:
       - name: Build proxy
         run: go build -o gha-proxy .
 
-      - name: Start proxy server with example.com backend
+      - name: Start nginx backend server
         run: |
-          # Start proxy in background pointing to example.com
+          # Start nginx as backend server
+          docker run -d --name nginx-backend \
+            -p 9090:80 \
+            nginx:latest
+
+          # Wait for nginx to start
+          for i in {1..30}; do
+            if curl -f http://localhost:9090/ 2>/dev/null; then
+              echo "Nginx backend started"
+              break
+            fi
+            echo "Waiting for nginx to start... ($i/30)"
+            sleep 1
+          done
+
+      - name: Start proxy server
+        run: |
+          # Start proxy in background pointing to nginx
           export PORT=8080
           export AUDIENCE="https://gha-proxy-test"
-          export BACKEND_URL="https://example.com"
+          export BACKEND_URL="http://localhost:9090"
           export ALLOWED_REPOSITORIES="${{ github.repository }}"
           ./gha-proxy > proxy.log 2>&1 &
           PROXY_PID=$!
@@ -59,14 +76,14 @@ jobs:
           # Wait for server to start
           for i in {1..30}; do
             if curl -f http://localhost:8080/ 2>/dev/null; then
-              echo "Server started"
+              echo "Proxy server started"
               break
             fi
-            echo "Waiting for server to start... ($i/30)"
+            echo "Waiting for proxy to start... ($i/30)"
             sleep 1
           done
 
-      - name: Test proxy redirects to example.com
+      - name: Test proxy redirects to nginx backend
         run: |
           # Get OIDC token with correct audience
           TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
@@ -78,7 +95,7 @@ jobs:
             exit 1
           fi
 
-          # Test that proxy forwards request to example.com
+          # Test that proxy forwards request to nginx backend
           RESPONSE=$(curl -s -w "\n%{http_code}" \
             -H "Authorization: Bearer $TOKEN" \
             http://localhost:8080/)
@@ -89,11 +106,11 @@ jobs:
           echo "HTTP Status: $HTTP_CODE"
           echo "Response body (first 200 chars): ${BODY:0:200}"
 
-          # Verify response came from example.com (contains "Example Domain")
-          if [ "$HTTP_CODE" = "200" ] && echo "$BODY" | grep -q "Example Domain"; then
-            echo "✅ Proxy redirect to example.com test passed"
+          # Verify response came from nginx (contains "Welcome to nginx")
+          if [ "$HTTP_CODE" = "200" ] && echo "$BODY" | grep -q "Welcome to nginx"; then
+            echo "✅ Proxy redirect to nginx backend test passed"
           else
-            echo "❌ Proxy redirect test failed: expected 200 with Example Domain response"
+            echo "❌ Proxy redirect test failed: expected 200 with nginx response"
             echo "Full response: $BODY"
             exit 1
           fi
@@ -190,7 +207,7 @@ jobs:
 
           export PORT=8080
           export AUDIENCE="https://gha-proxy-test"
-          export BACKEND_URL="https://example.com"
+          export BACKEND_URL="http://localhost:9090"
           export ALLOWED_REPOSITORIES="some-other-org/*"
           ./gha-proxy > proxy.log 2>&1 &
           PROXY_PID=$!
@@ -198,7 +215,7 @@ jobs:
           # Wait for server to restart
           for i in {1..30}; do
             if curl -f http://localhost:8080/ 2>/dev/null; then
-              echo "Server restarted"
+              echo "Proxy server restarted"
               break
             fi
             sleep 1
@@ -241,3 +258,5 @@ jobs:
           if [ -n "$PROXY_PID" ]; then
             kill $PROXY_PID || true
           fi
+          docker stop nginx-backend || true
+          docker rm nginx-backend || true
