@@ -11,7 +11,7 @@ type Config struct {
 	Port                 int
 	BypassIPList         []string
 	Audience             string
-	GoproxyURL           string
+	BackendURL           string
 	AllowedRepositories  []string
 }
 
@@ -39,9 +39,9 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("AUDIENCE is required")
 	}
 
-	goproxyURL := os.Getenv("GOPROXY_URL")
-	if goproxyURL == "" {
-		return nil, fmt.Errorf("GOPROXY_URL is required")
+	backendURL := os.Getenv("BACKEND_URL")
+	if backendURL == "" {
+		return nil, fmt.Errorf("BACKEND_URL is required")
 	}
 
 	allowedReposStr := os.Getenv("ALLOWED_REPOSITORIES")
@@ -57,7 +57,7 @@ func Load() (*Config, error) {
 		Port:                port,
 		BypassIPList:        bypassIPList,
 		Audience:            audience,
-		GoproxyURL:          goproxyURL,
+		BackendURL:          backendURL,
 		AllowedRepositories: allowedRepositories,
 	}, nil
 }

@@ -2,14 +2,14 @@
 
 [English](README.md)
 
-GitHub Actions OIDC トークンを使用してリクエストを認証するセキュアな Go モジュールプロキシです。
+GitHub Actions OIDC トークンを検証してからバックエンドサービスにリクエストを転送するセキュアな認証プロキシです。
 
 ## 機能
 
 - **IP バイパスリスト**: 認証なしで特定の IP アドレス/CIDR 範囲からのリクエストを許可
 - **OIDC 認証**: バイパスされていないリクエストに対して GitHub Actions OIDC トークンを検証
 - **リポジトリフィルタリング**: パターンマッチングを使用して特定のリポジトリへのアクセスを制御
-- **リバースプロキシ**: 認証されたリクエストをバックエンドの Go モジュールプロキシに転送
+- **リバースプロキシ**: 認証されたリクエストをバックエンドサービス（Go モジュールプロキシ、API など）に転送
 
 ## アーキテクチャ
 
@@ -28,7 +28,7 @@ GitHub Actions OIDC トークンを使用してリクエストを認証するセ
 | `PORT` | いいえ | サーバーポート（デフォルト: 8080） | `8080` |
 | `BYPASS_IP_LIST` | いいえ | カンマ区切りの IP/CIDR バイパスリスト | `127.0.0.1,192.168.1.0/24` |
 | `AUDIENCE` | はい | OIDC トークンのオーディエンス | `https://goproxy.example.com` |
-| `GOPROXY_URL` | はい | バックエンドプロキシの URL | `https://proxy.golang.org` |
+| `BACKEND_URL` | はい | プロキシ先のバックエンドサービス URL | `https://proxy.golang.org` または `https://api.example.com` |
 | `ALLOWED_REPOSITORIES` | いいえ | リポジトリアクセスパターン（デフォルト: なし - すべて拒否） | `dev-shimada/*,owner/repo1` |
 
 ### リポジトリアクセスパターン
@@ -83,7 +83,7 @@ go run main.go
 docker build -t gha-proxy .
 docker run -p 8080:8080 \
   -e AUDIENCE=https://goproxy.example.com \
-  -e GOPROXY_URL=https://proxy.golang.org \
+  -e BACKEND_URL=https://proxy.golang.org \
   gha-proxy
 ```
 

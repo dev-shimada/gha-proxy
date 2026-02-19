@@ -26,7 +26,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	proxyHandler, err := proxy.New(cfg.GoproxyURL)
+	proxyHandler, err := proxy.New(cfg.BackendURL)
 	if err != nil {
 		slog.Error("failed to create proxy", "error", err)
 		os.Exit(1)

@@ -5,7 +5,7 @@ echo "Starting gha-proxy server in background..."
 export PORT=8080
 export BYPASS_IP_LIST=127.0.0.1,::1
 export AUDIENCE=https://localhost:8080
-export GOPROXY_URL=https://proxy.golang.org
+export BACKEND_URL=https://proxy.golang.org
 
 go run main.go &
 SERVER_PID=$!

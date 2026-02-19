@@ -2,14 +2,14 @@
 
 [日本語](README.ja.md)
 
-A secure Go module proxy that authenticates requests using GitHub Actions OIDC tokens.
+A secure authentication proxy that verifies GitHub Actions OIDC tokens before forwarding requests to a backend service.
 
 ## Features
 
 - **IP Bypass List**: Allow requests from specific IP addresses/CIDR ranges without authentication
 - **OIDC Authentication**: Verify GitHub Actions OIDC tokens for non-bypassed requests
 - **Repository Filtering**: Control access to specific repositories using pattern matching
-- **Reverse Proxy**: Forward authenticated requests to a backend Go module proxy
+- **Reverse Proxy**: Forward authenticated requests to a backend service (Go module proxy, API, etc.)
 
 ## Architecture
 
@@ -28,7 +28,7 @@ Configure the proxy using environment variables:
 | `PORT` | No | Server port (default: 8080) | `8080` |
 | `BYPASS_IP_LIST` | No | Comma-separated IP/CIDR bypass list | `127.0.0.1,192.168.1.0/24` |
 | `AUDIENCE` | Yes | OIDC token audience | `https://goproxy.example.com` |
-| `GOPROXY_URL` | Yes | Backend proxy URL | `https://proxy.golang.org` |
+| `BACKEND_URL` | Yes | Backend service URL to proxy to | `https://proxy.golang.org` or `https://api.example.com` |
 | `ALLOWED_REPOSITORIES` | No | Repository access patterns (default: none - all denied) | `dev-shimada/*,owner/repo1` |
 
 ### Repository Access Patterns
@@ -83,7 +83,7 @@ go run main.go
 docker build -t gha-proxy .
 docker run -p 8080:8080 \
   -e AUDIENCE=https://goproxy.example.com \
-  -e GOPROXY_URL=https://proxy.golang.org \
+  -e BACKEND_URL=https://proxy.golang.org \
   gha-proxy
 ```
 

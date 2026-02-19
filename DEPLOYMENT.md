@@ -25,7 +25,7 @@ docker run -p 8080:8080 \
   -e PORT=8080 \
   -e BYPASS_IP_LIST="10.0.0.0/8" \
   -e AUDIENCE="https://your-domain.com" \
-  -e GOPROXY_URL="https://proxy.golang.org" \
+  -e BACKEND_URL="https://proxy.golang.org" \
   gha-proxy
 ```
 
@@ -41,7 +41,7 @@ gcloud run deploy gha-proxy \
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars="BYPASS_IP_LIST=,AUDIENCE=https://gha-proxy-xxx.run.app,GOPROXY_URL=https://proxy.golang.org"
+  --set-env-vars="BYPASS_IP_LIST=,AUDIENCE=https://gha-proxy-xxx.run.app,BACKEND_URL=https://proxy.golang.org"
 ```
 
 ### Option 3: Fly.io
@@ -56,7 +56,7 @@ app = "gha-proxy"
 
 [env]
   PORT = "8080"
-  GOPROXY_URL = "https://proxy.golang.org"
+  BACKEND_URL = "https://proxy.golang.org"
 
 [[services]]
   internal_port = 8080
@@ -89,7 +89,7 @@ fly deploy
 heroku create gha-proxy
 
 # Set config
-heroku config:set GOPROXY_URL=https://proxy.golang.org
+heroku config:set BACKEND_URL=https://proxy.golang.org
 heroku config:set AUDIENCE=https://gha-proxy.herokuapp.com
 heroku config:set BYPASS_IP_LIST=""
 
@@ -129,7 +129,7 @@ steps:
 | `PORT` | Server port | `8080` |
 | `BYPASS_IP_LIST` | Comma-separated IPs/CIDRs | `192.168.1.0/24,10.0.0.1` |
 | `AUDIENCE` | OIDC token audience (your proxy URL) | `https://gha-proxy.example.com` |
-| `GOPROXY_URL` | Backend Go proxy URL | `https://proxy.golang.org` |
+| `BACKEND_URL` | Backend Go proxy URL | `https://proxy.golang.org` |
 
 ## Security Considerations
 
