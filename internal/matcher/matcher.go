@@ -48,13 +48,22 @@ func MatchesRepository(modulePath, claimRepository string) (bool, error) {
 	return moduleRepo == claimRepository, nil
 }
 
-func IsAllowedRepository(modulePath string, allowedPatterns []string) (bool, error) {
-	moduleRepo, err := ExtractRepository(modulePath)
-	if err != nil {
-		return false, err
+func IsAllowedRepository(repositoryOrModulePath string, allowedPatterns []string) (bool, error) {
+	var repository string
+
+	// If it starts with github.com/, extract the repository
+	if strings.HasPrefix(repositoryOrModulePath, "github.com/") {
+		var err error
+		repository, err = ExtractRepository(repositoryOrModulePath)
+		if err != nil {
+			return false, err
+		}
+	} else {
+		// Assume it's already in "owner/repo" format
+		repository = repositoryOrModulePath
 	}
 
-	moduleRepo = strings.ToLower(moduleRepo)
+	repository = strings.ToLower(repository)
 
 	for _, pattern := range allowedPatterns {
 		pattern = strings.ToLower(strings.TrimSpace(pattern))
@@ -64,12 +73,12 @@ func IsAllowedRepository(modulePath string, allowedPatterns []string) (bool, err
 		}
 
 		if owner, ok := strings.CutSuffix(pattern, "/*"); ok {
-			moduleOwner := strings.Split(moduleRepo, "/")[0]
-			if owner == moduleOwner {
+			repoOwner := strings.Split(repository, "/")[0]
+			if owner == repoOwner {
 				return true, nil
 			}
 		} else {
-			if pattern == moduleRepo {
+			if pattern == repository {
 				return true, nil
 			}
 		}

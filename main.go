@@ -72,23 +72,11 @@ func main() {
 			return
 		}
 
-		modulePath, err := matcher.ExtractModulePath(r.URL.Path)
-		if err != nil {
-			slog.Warn("failed to extract module path",
-				"remote_ip", remoteIP,
-				"path", r.URL.Path,
-				"error", err,
-			)
-			http.Error(w, "Bad Request", http.StatusBadRequest)
-			return
-		}
-
-		allowed, err := matcher.IsAllowedRepository(modulePath, cfg.AllowedRepositories)
+		allowed, err := matcher.IsAllowedRepository(claims.Repository, cfg.AllowedRepositories)
 		if err != nil {
 			slog.Warn("failed to check allowed repository",
 				"remote_ip", remoteIP,
 				"path", r.URL.Path,
-				"module_path", modulePath,
 				"claim_repository", claims.Repository,
 				"error", err,
 			)
@@ -100,7 +88,6 @@ func main() {
 			slog.Warn("repository not allowed",
 				"remote_ip", remoteIP,
 				"path", r.URL.Path,
-				"module_path", modulePath,
 				"claim_repository", claims.Repository,
 				"allowed_patterns", cfg.AllowedRepositories,
 			)

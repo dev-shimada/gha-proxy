@@ -228,6 +228,34 @@ func TestIsAllowedRepository(t *testing.T) {
 			want:            true,
 			wantErr:         false,
 		},
+		{
+			name:            "owner/repo format - exact match",
+			modulePath:      "dev-shimada/package1",
+			allowedPatterns: []string{"dev-shimada/package1"},
+			want:            true,
+			wantErr:         false,
+		},
+		{
+			name:            "owner/repo format - wildcard match",
+			modulePath:      "otherowner/app",
+			allowedPatterns: []string{"otherowner/*"},
+			want:            true,
+			wantErr:         false,
+		},
+		{
+			name:            "owner/repo format - no match",
+			modulePath:      "untrusted/malicious",
+			allowedPatterns: []string{"trusted/*"},
+			want:            false,
+			wantErr:         false,
+		},
+		{
+			name:            "owner/repo format - wildcard allows all",
+			modulePath:      "anyowner/anyrepo",
+			allowedPatterns: []string{"*"},
+			want:            true,
+			wantErr:         false,
+		},
 	}
 
 	for _, tt := range tests {

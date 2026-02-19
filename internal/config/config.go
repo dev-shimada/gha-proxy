@@ -51,8 +51,6 @@ func Load() (*Config, error) {
 		for i, repo := range allowedRepositories {
 			allowedRepositories[i] = strings.TrimSpace(repo)
 		}
-	} else {
-		allowedRepositories = []string{"*"}
 	}
 
 	return &Config{
