@@ -1,0 +1,243 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Run unit tests
+        run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.txt
+          fail_ci_if_error: false
+
+  integration-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Build proxy
+        run: go build -o gha-proxy .
+
+      - name: Start proxy server with example.com backend
+        run: |
+          # Start proxy in background pointing to example.com
+          export PORT=8080
+          export AUDIENCE="https://gha-proxy-test"
+          export BACKEND_URL="https://example.com"
+          export ALLOWED_REPOSITORIES="${{ github.repository }}"
+          ./gha-proxy > proxy.log 2>&1 &
+          PROXY_PID=$!
+          echo "PROXY_PID=$PROXY_PID" >> $GITHUB_ENV
+
+          # Wait for server to start
+          for i in {1..30}; do
+            if curl -f http://localhost:8080/ 2>/dev/null; then
+              echo "Server started"
+              break
+            fi
+            echo "Waiting for server to start... ($i/30)"
+            sleep 1
+          done
+
+      - name: Test proxy redirects to example.com
+        run: |
+          # Get OIDC token with correct audience
+          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://gha-proxy-test" \
+            | jq -r .value)
+
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "Failed to get OIDC token"
+            exit 1
+          fi
+
+          # Test that proxy forwards request to example.com
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            http://localhost:8080/)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n-1)
+
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response body (first 200 chars): ${BODY:0:200}"
+
+          # Verify response came from example.com (contains "Example Domain")
+          if [ "$HTTP_CODE" = "200" ] && echo "$BODY" | grep -q "Example Domain"; then
+            echo "✅ Proxy redirect to example.com test passed"
+          else
+            echo "❌ Proxy redirect test failed: expected 200 with Example Domain response"
+            echo "Full response: $BODY"
+            exit 1
+          fi
+
+      - name: Test authorization header is removed
+        run: |
+          # Get OIDC token
+          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://gha-proxy-test" \
+            | jq -r .value)
+
+          # Send request through proxy
+          curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/ > /dev/null
+
+          # Check proxy logs to verify Authorization header was removed
+          sleep 1
+          if grep -q "request authenticated and authorized" proxy.log; then
+            echo "✅ Authorization processing verified in logs"
+          else
+            echo "❌ Could not verify authorization processing in logs"
+            echo "Proxy log:"
+            cat proxy.log
+            exit 1
+          fi
+
+      - name: Test invalid OIDC token
+        run: |
+          # Test with invalid token
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer invalid-token-here" \
+            http://localhost:8080/)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+
+          echo "HTTP Status: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" = "401" ]; then
+            echo "✅ Invalid token test passed (correctly rejected)"
+          else
+            echo "❌ Invalid token test failed: expected 401, got $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Test missing authorization header
+        run: |
+          # Test without authorization header
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            http://localhost:8080/)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+
+          echo "HTTP Status: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" = "401" ]; then
+            echo "✅ Missing auth test passed (correctly rejected)"
+          else
+            echo "❌ Missing auth test failed: expected 401, got $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Test wrong audience
+        run: |
+          # Get OIDC token with wrong audience
+          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://wrong-audience" \
+            | jq -r .value)
+
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "Failed to get OIDC token"
+            exit 1
+          fi
+
+          # Test access with wrong audience token
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            http://localhost:8080/)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+
+          echo "HTTP Status: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" = "401" ]; then
+            echo "✅ Wrong audience test passed (correctly rejected)"
+          else
+            echo "❌ Wrong audience test failed: expected 401, got $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Test unauthorized repository
+        run: |
+          # Restart proxy with different allowed repository
+          kill $PROXY_PID || true
+          sleep 2
+
+          export PORT=8080
+          export AUDIENCE="https://gha-proxy-test"
+          export BACKEND_URL="https://example.com"
+          export ALLOWED_REPOSITORIES="some-other-org/*"
+          ./gha-proxy > proxy.log 2>&1 &
+          PROXY_PID=$!
+
+          # Wait for server to restart
+          for i in {1..30}; do
+            if curl -f http://localhost:8080/ 2>/dev/null; then
+              echo "Server restarted"
+              break
+            fi
+            sleep 1
+          done
+
+          # Get valid OIDC token
+          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://gha-proxy-test" \
+            | jq -r .value)
+
+          # Test access - should be forbidden due to repository restriction
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            http://localhost:8080/)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+
+          echo "HTTP Status: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" = "403" ]; then
+            echo "✅ Unauthorized repository test passed (correctly forbidden)"
+          else
+            echo "❌ Unauthorized repository test failed: expected 403, got $HTTP_CODE"
+            cat proxy.log
+            exit 1
+          fi
+
+          # Cleanup
+          kill $PROXY_PID || true
+
+      - name: Show proxy logs
+        if: failure()
+        run: |
+          echo "=== Proxy Logs ==="
+          cat proxy.log || echo "No logs available"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ -n "$PROXY_PID" ]; then
+            kill $PROXY_PID || true
+          fi
