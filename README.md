@@ -30,6 +30,9 @@ Configure the proxy using environment variables:
 | `AUDIENCE` | Yes | OIDC token audience | `https://goproxy.example.com` |
 | `BACKEND_URL` | Yes | Backend service URL to proxy to | `https://proxy.golang.org` or `https://api.example.com` |
 | `ALLOWED_REPOSITORIES` | No | Repository access patterns (default: none - all denied) | `dev-shimada/*,owner/repo1` |
+| `TLS_ENABLED` | No | Enable TLS/HTTPS (default: false) | `true` |
+| `TLS_CERT_FILE` | Conditional | TLS certificate file path (required if TLS_ENABLED=true) | `cert.pem` |
+| `TLS_KEY_FILE` | Conditional | TLS private key file path (required if TLS_ENABLED=true) | `key.pem` |
 
 ### Repository Access Patterns
 
@@ -59,6 +62,88 @@ ALLOWED_REPOSITORIES=dev-shimada/*,otherowner/trusted-app
 ```
 
 **Note:** The repository check is performed against the **source repository** (from the OIDC token's `repository` claim), not the module path being requested. For example, if a workflow in `dev-shimada/app` requests any Go module, the pattern must include `dev-shimada/app` or `dev-shimada/*` for access to be granted.
+
+### TLS/HTTPS Configuration
+
+The proxy supports native HTTPS/TLS for secure communication. When TLS is enabled, the server will use HTTPS instead of HTTP.
+
+**Security Settings:**
+- Minimum TLS version: TLS 1.2
+- Certificate and key files must be provided when TLS is enabled
+
+**Generating Self-Signed Certificates (for local development):**
+
+```bash
+# Add hostname to /etc/hosts
+echo "127.0.0.1   proxy.example.com" | sudo tee -a /etc/hosts
+
+# Create OpenSSL config with Subject Alternative Names (SANs)
+cat > san.cnf << 'EOF'
+[req]
+default_bits = 4096
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+CN = proxy.example.com
+
+[v3_req]
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = proxy.example.com
+DNS.2 = *.proxy.example.com
+IP.1 = 127.0.0.1
+IP.2 = ::1
+EOF
+
+# Generate certificate with SANs
+openssl req -x509 -newkey rsa:4096 -nodes \
+  -keyout key.pem \
+  -out cert.pem \
+  -days 365 \
+  -config san.cnf \
+  -extensions v3_req
+
+# Verify the certificate includes the correct SANs
+openssl x509 -in cert.pem -text -noout | grep -A 1 "Subject Alternative Name"
+```
+
+**Note:** Modern Go versions require certificates to use Subject Alternative Names (SANs) instead of the legacy Common Name field. The above method ensures compatibility.
+
+**Trusting Self-Signed Certificates:**
+
+After generating a self-signed certificate, you need to add it to your system's trusted certificate store to avoid `x509: certificate signed by unknown authority` errors:
+
+```bash
+# Ubuntu/Debian
+sudo cp cert.pem /usr/local/share/ca-certificates/gha-proxy.crt
+sudo update-ca-certificates
+
+# macOS
+sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain cert.pem
+
+# RHEL/CentOS/Fedora
+sudo cp cert.pem /etc/pki/ca-trust/source/anchors/gha-proxy.crt
+sudo update-ca-trust
+
+# Alpine Linux
+sudo cp cert.pem /usr/local/share/ca-certificates/gha-proxy.crt
+sudo update-ca-certificates
+```
+
+**Alternative: Using GOINSECURE (not recommended for TLS):**
+
+Note that `GOINSECURE` only disables checksum database validation and allows HTTP (not HTTPS). It does NOT skip HTTPS certificate verification. To use the proxy with self-signed certificates, you must add the certificate to your system trust store as shown above.
+
+**Running with TLS:**
+
+```bash
+TLS_ENABLED=true TLS_CERT_FILE=cert.pem TLS_KEY_FILE=key.pem ./gha-proxy
+```
+
+**Production Note:** In production environments, use certificates from a trusted Certificate Authority (CA) rather than self-signed certificates.
 
 ## Usage
 

@@ -13,6 +13,9 @@ type Config struct {
 	Audience             string
 	BackendURL           string
 	AllowedRepositories  []string
+	TLSEnabled           bool
+	TLSCertFile          string
+	TLSKeyFile           string
 }
 
 func Load() (*Config, error) {
@@ -53,11 +56,26 @@ func Load() (*Config, error) {
 		}
 	}
 
+	tlsEnabled := false
+	if tlsEnabledStr := os.Getenv("TLS_ENABLED"); tlsEnabledStr == "true" {
+		tlsEnabled = true
+	}
+
+	tlsCertFile := os.Getenv("TLS_CERT_FILE")
+	tlsKeyFile := os.Getenv("TLS_KEY_FILE")
+
+	if tlsEnabled && (tlsCertFile == "" || tlsKeyFile == "") {
+		return nil, fmt.Errorf("TLS_CERT_FILE and TLS_KEY_FILE are required when TLS_ENABLED is true")
+	}
+
 	return &Config{
 		Port:                port,
 		BypassIPList:        bypassIPList,
 		Audience:            audience,
 		BackendURL:          backendURL,
 		AllowedRepositories: allowedRepositories,
+		TLSEnabled:          tlsEnabled,
+		TLSCertFile:         tlsCertFile,
+		TLSKeyFile:          tlsKeyFile,
 	}, nil
 }

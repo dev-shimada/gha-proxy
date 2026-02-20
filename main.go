@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -68,6 +69,7 @@ func main() {
 				"path", r.URL.Path,
 				"error", err,
 			)
+			w.Header().Set("WWW-Authenticate", `Bearer realm="gha-proxy"`)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -111,9 +113,22 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
+	if cfg.TLSEnabled {
+		server.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+	}
+
 	go func() {
-		slog.Info("starting server", "port", cfg.Port)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		var err error
+		if cfg.TLSEnabled {
+			slog.Info("starting HTTPS server", "port", cfg.Port)
+			err = server.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile)
+		} else {
+			slog.Info("starting HTTP server", "port", cfg.Port)
+			err = server.ListenAndServe()
+		}
+		if err != nil && err != http.ErrServerClosed {
 			slog.Error("server error", "error", err)
 			os.Exit(1)
 		}

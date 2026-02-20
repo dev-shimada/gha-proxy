@@ -30,6 +30,9 @@ GitHub Actions OIDC トークンを検証してからバックエンドサービ
 | `AUDIENCE` | はい | OIDC トークンのオーディエンス | `https://goproxy.example.com` |
 | `BACKEND_URL` | はい | プロキシ先のバックエンドサービス URL | `https://proxy.golang.org` または `https://api.example.com` |
 | `ALLOWED_REPOSITORIES` | いいえ | リポジトリアクセスパターン（デフォルト: なし - すべて拒否） | `dev-shimada/*,owner/repo1` |
+| `TLS_ENABLED` | いいえ | TLS/HTTPS を有効化（デフォルト: false） | `true` |
+| `TLS_CERT_FILE` | 条件付き | TLS 証明書ファイルのパス（TLS_ENABLED=true の場合は必須） | `cert.pem` |
+| `TLS_KEY_FILE` | 条件付き | TLS 秘密鍵ファイルのパス（TLS_ENABLED=true の場合は必須） | `key.pem` |
 
 ### リポジトリアクセスパターン
 
@@ -59,6 +62,88 @@ ALLOWED_REPOSITORIES=dev-shimada/*,otherowner/trusted-app
 ```
 
 **注意:** リポジトリチェックは、リクエストされているモジュールパスではなく、**送信元リポジトリ**（OIDC トークンの `repository` クレーム）に対して実行されます。例えば、`dev-shimada/app` のワークフローが任意の Go モジュールをリクエストする場合、アクセスを許可するには `dev-shimada/app` または `dev-shimada/*` をパターンに含める必要があります。
+
+### TLS/HTTPS 設定
+
+プロキシはセキュアな通信のためにネイティブ HTTPS/TLS をサポートしています。TLS を有効化すると、サーバーは HTTP ではなく HTTPS を使用します。
+
+**セキュリティ設定:**
+- 最小 TLS バージョン: TLS 1.2
+- TLS を有効化する場合は証明書と鍵ファイルを提供する必要があります
+
+**自己署名証明書の生成（ローカル開発用）:**
+
+```bash
+# /etc/hosts にホスト名を追加
+echo "127.0.0.1   proxy.example.com" | sudo tee -a /etc/hosts
+
+# Subject Alternative Names (SANs) を含む OpenSSL 設定ファイルを作成
+cat > san.cnf << 'EOF'
+[req]
+default_bits = 4096
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+CN = proxy.example.com
+
+[v3_req]
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = proxy.example.com
+DNS.2 = *.proxy.example.com
+IP.1 = 127.0.0.1
+IP.2 = ::1
+EOF
+
+# SANs を含む証明書を生成
+openssl req -x509 -newkey rsa:4096 -nodes \
+  -keyout key.pem \
+  -out cert.pem \
+  -days 365 \
+  -config san.cnf \
+  -extensions v3_req
+
+# 証明書に正しい SANs が含まれているか確認
+openssl x509 -in cert.pem -text -noout | grep -A 1 "Subject Alternative Name"
+```
+
+**注意:** 最新の Go バージョンでは、レガシーな Common Name フィールドではなく、Subject Alternative Names (SANs) を使用した証明書が必要です。上記の方法で互換性が確保されます。
+
+**自己署名証明書を信頼する:**
+
+自己署名証明書を生成した後、`x509: certificate signed by unknown authority` エラーを回避するために、システムの信頼された証明書ストアに追加する必要があります：
+
+```bash
+# Ubuntu/Debian
+sudo cp cert.pem /usr/local/share/ca-certificates/gha-proxy.crt
+sudo update-ca-certificates
+
+# macOS
+sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain cert.pem
+
+# RHEL/CentOS/Fedora
+sudo cp cert.pem /etc/pki/ca-trust/source/anchors/gha-proxy.crt
+sudo update-ca-trust
+
+# Alpine Linux
+sudo cp cert.pem /usr/local/share/ca-certificates/gha-proxy.crt
+sudo update-ca-certificates
+```
+
+**別の方法: GOINSECURE の使用（TLS には非推奨）:**
+
+`GOINSECURE` はチェックサムデータベースの検証を無効にし、HTTP（HTTPSではない）を許可するだけです。HTTPS証明書の検証はスキップ**されません**。自己署名証明書を使ったプロキシを使用するには、上記のようにシステムの信頼ストアに証明書を追加する必要があります。
+
+**TLS で実行:**
+
+```bash
+TLS_ENABLED=true TLS_CERT_FILE=cert.pem TLS_KEY_FILE=key.pem ./gha-proxy
+```
+
+**本番環境での注意:** 本番環境では、自己署名証明書ではなく、信頼された認証局（CA）からの証明書を使用してください。
 
 ## 使用方法
 
