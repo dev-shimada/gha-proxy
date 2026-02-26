@@ -33,6 +33,7 @@ GitHub Actions OIDC トークンを検証してからバックエンドサービ
 | `TLS_ENABLED` | いいえ | TLS/HTTPS を有効化（デフォルト: false） | `true` |
 | `TLS_CERT_FILE` | 条件付き | TLS 証明書ファイルのパス（TLS_ENABLED=true の場合は必須） | `cert.pem` |
 | `TLS_KEY_FILE` | 条件付き | TLS 秘密鍵ファイルのパス（TLS_ENABLED=true の場合は必須） | `key.pem` |
+| `DEBUG` | いいえ | デバッグモードを有効化し、リクエストヘッダーを含む詳細なログを出力（デフォルト: false） | `true` |
 
 ### リポジトリアクセスパターン
 

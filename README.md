@@ -33,6 +33,7 @@ Configure the proxy using environment variables:
 | `TLS_ENABLED` | No | Enable TLS/HTTPS (default: false) | `true` |
 | `TLS_CERT_FILE` | Conditional | TLS certificate file path (required if TLS_ENABLED=true) | `cert.pem` |
 | `TLS_KEY_FILE` | Conditional | TLS private key file path (required if TLS_ENABLED=true) | `key.pem` |
+| `DEBUG` | No | Enable debug mode with detailed logging including request headers (default: false) | `true` |
 
 ### Repository Access Patterns
 

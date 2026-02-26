@@ -18,16 +18,26 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
-
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load config", "error", err)
 		os.Exit(1)
 	}
 
-	proxyHandler, err := proxy.New(cfg.BackendURL)
+	logLevel := slog.LevelInfo
+	if cfg.Debug {
+		logLevel = slog.LevelDebug
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: logLevel,
+	}))
+	slog.SetDefault(logger)
+
+	if cfg.Debug {
+		slog.Debug("debug mode enabled")
+	}
+
+	proxyHandler, err := proxy.New(cfg.BackendURL, cfg.Debug)
 	if err != nil {
 		slog.Error("failed to create proxy", "error", err)
 		os.Exit(1)
@@ -51,6 +61,21 @@ func main() {
 		remoteIP := r.RemoteAddr
 		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
 			remoteIP = forwarded
+		}
+
+		if cfg.Debug {
+			headers := make(map[string]string)
+			for k, v := range r.Header {
+				if len(v) > 0 {
+					headers[k] = v[0]
+				}
+			}
+			slog.Debug("incoming request",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"remote_ip", remoteIP,
+				"headers", headers,
+			)
 		}
 
 		if bypassIPList.IsBypassed(r) {

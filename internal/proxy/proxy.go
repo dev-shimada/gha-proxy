@@ -9,9 +9,10 @@ import (
 
 type Proxy struct {
 	reverseProxy *httputil.ReverseProxy
+	debug        bool
 }
 
-func New(backendURL string) (*Proxy, error) {
+func New(backendURL string, debug bool) (*Proxy, error) {
 	target, err := url.Parse(backendURL)
 	if err != nil {
 		return nil, err
@@ -25,10 +26,26 @@ func New(backendURL string) (*Proxy, error) {
 
 	return &Proxy{
 		reverseProxy: rp,
+		debug:        debug,
 	}, nil
 }
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.Header.Del("Authorization")
+
+	if p.debug {
+		headers := make(map[string]string)
+		for k, v := range r.Header {
+			if len(v) > 0 {
+				headers[k] = v[0]
+			}
+		}
+		slog.Debug("proxying request to backend",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"headers", headers,
+		)
+	}
+
 	p.reverseProxy.ServeHTTP(w, r)
 }

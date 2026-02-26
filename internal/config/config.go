@@ -16,6 +16,7 @@ type Config struct {
 	TLSEnabled           bool
 	TLSCertFile          string
 	TLSKeyFile           string
+	Debug                bool
 }
 
 func Load() (*Config, error) {
@@ -68,6 +69,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("TLS_CERT_FILE and TLS_KEY_FILE are required when TLS_ENABLED is true")
 	}
 
+	debug := false
+	if debugStr := os.Getenv("DEBUG"); debugStr == "true" {
+		debug = true
+	}
+
 	return &Config{
 		Port:                port,
 		BypassIPList:        bypassIPList,
@@ -77,5 +83,6 @@ func Load() (*Config, error) {
 		TLSEnabled:          tlsEnabled,
 		TLSCertFile:         tlsCertFile,
 		TLSKeyFile:          tlsKeyFile,
+		Debug:               debug,
 	}, nil
 }
