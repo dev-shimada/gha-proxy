@@ -8,6 +8,7 @@ GitHub Actions OIDC トークンを検証してからバックエンドサービ
 
 - **IP バイパスリスト**: 認証なしで特定の IP アドレス/CIDR 範囲からのリクエストを許可
 - **OIDC 認証**: バイパスされていないリクエストに対して GitHub Actions OIDC トークンを検証
+- **Basic 認証**: ユーザー名 `bearer`、パスワードに JWT トークンを使用した Basic 認証をサポート（GOPROXY の URL 埋め込み認証情報用）
 - **リポジトリフィルタリング**: パターンマッチングを使用して特定のリポジトリへのアクセスを制御
 - **リバースプロキシ**: 認証されたリクエストをバックエンドサービス（Go モジュールプロキシ、API など）に転送
 
@@ -208,7 +209,7 @@ jobs:
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
-      - name: Go プロキシを設定
+      - name: Go プロキシを設定（オプション1: GOAUTH）
         env:
           TOKEN: ${{ steps.token.outputs.token }}
         run: |
@@ -218,6 +219,23 @@ jobs:
       - name: ビルド
         run: go build
 ```
+
+**代替方法: URL 埋め込み認証情報（Basic 認証）**
+
+`GOAUTH` が利用できない環境や、よりシンプルな設定が必要な場合は、GOPROXY URL に直接認証情報を埋め込むことができます。プロキシはユーザー名 `bearer`、パスワードに JWT トークンを使用した Basic 認証を受け付けます：
+
+```yaml
+      - name: Go プロキシを設定（オプション2: URL 埋め込み）
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          echo "GOPROXY=https://bearer:${TOKEN}@goproxy.example.com" >> $GITHUB_ENV
+
+      - name: ビルド
+        run: go build
+```
+
+**注意:** URL 埋め込み認証情報を使用すると、Go は自動的に Basic 認証ヘッダーとして送信します。
 
 ## セキュリティに関する考慮事項
 
@@ -241,7 +259,12 @@ curl http://localhost:8080/golang.org/x/text/@v/list
 # トークンなし（401 が返るはず）
 curl http://localhost:8080/github.com/myorg/myrepo/@v/list
 
-# 有効なトークンあり（リポジトリの一致に応じて 200 または 403 が返るはず）
+# 有効な Bearer トークンあり（リポジトリの一致に応じて 200 または 403 が返るはず）
 curl -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8080/github.com/myorg/myrepo/@v/list
+
+# Basic 認証（ユーザー名 "bearer"、パスワードは JWT トークン）
+BASIC_AUTH=$(echo -n "bearer:$TOKEN" | base64)
+curl -H "Authorization: Basic $BASIC_AUTH" \
      http://localhost:8080/github.com/myorg/myrepo/@v/list
 ```

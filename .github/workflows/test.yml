@@ -115,6 +115,67 @@ jobs:
             exit 1
           fi
 
+      - name: Test Basic auth (GOAUTH-style)
+        run: |
+          # Get OIDC token
+          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://gha-proxy-test" \
+            | jq -r .value)
+
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "Failed to get OIDC token"
+            exit 1
+          fi
+
+          # Create Basic auth header: base64(bearer:token)
+          BASIC_AUTH=$(echo -n "bearer:$TOKEN" | base64 -w 0)
+
+          # Test that proxy accepts Basic auth
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Basic $BASIC_AUTH" \
+            http://localhost:8080/)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n-1)
+
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response body (first 200 chars): ${BODY:0:200}"
+
+          # Verify response came from nginx (contains "Welcome to nginx")
+          if [ "$HTTP_CODE" = "200" ] && echo "$BODY" | grep -q "Welcome to nginx"; then
+            echo "✅ Basic auth test passed"
+          else
+            echo "❌ Basic auth test failed: expected 200 with nginx response"
+            echo "Full response: $BODY"
+            exit 1
+          fi
+
+      - name: Test Basic auth with invalid username
+        run: |
+          # Get OIDC token
+          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://gha-proxy-test" \
+            | jq -r .value)
+
+          # Create Basic auth header with wrong username (admin instead of bearer)
+          BASIC_AUTH=$(echo -n "admin:$TOKEN" | base64 -w 0)
+
+          # Test that proxy rejects Basic auth with wrong username
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Basic $BASIC_AUTH" \
+            http://localhost:8080/)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+
+          echo "HTTP Status: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" = "401" ]; then
+            echo "✅ Basic auth with invalid username test passed (correctly rejected)"
+          else
+            echo "❌ Basic auth with invalid username test failed: expected 401, got $HTTP_CODE"
+            exit 1
+          fi
+
       - name: Test authorization header is removed
         run: |
           # Get OIDC token

@@ -101,6 +101,8 @@ git push heroku main
 
 After deploying, update your GitHub Actions workflow:
 
+### Option 1: Using GOAUTH (Recommended)
+
 ```yaml
 permissions:
   id-token: write
@@ -121,6 +123,32 @@ steps:
       GOPROXY: https://YOUR_DEPLOYED_URL
     run: go mod download
 ```
+
+### Option 2: Using URL-embedded credentials (Basic Auth)
+
+For environments where `GOAUTH` is not available, you can embed credentials in the URL:
+
+```yaml
+permissions:
+  id-token: write
+
+steps:
+  - name: Get OIDC Token
+    id: token
+    run: |
+      TOKEN=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+        "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://YOUR_DEPLOYED_URL" \
+        | jq -r .value)
+      echo "::add-mask::$TOKEN"
+      echo "token=$TOKEN" >> $GITHUB_OUTPUT
+
+  - name: Download dependencies
+    env:
+      GOPROXY: "https://bearer:${{ steps.token.outputs.token }}@YOUR_DEPLOYED_URL"
+    run: go mod download
+```
+
+**Note:** The proxy accepts Basic auth with username `bearer` and the JWT token as password.
 
 ## Environment Variables
 

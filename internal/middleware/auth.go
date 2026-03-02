@@ -28,7 +28,6 @@ func NewAuth(audience string) (*Auth, error) {
 }
 
 func (a *Auth) VerifyToken(ctx context.Context, r *http.Request) (*oidc.Claims, error) {
-	fmt.Printf("Header: %v\n", r.Header)
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		return nil, errors.New("missing Authorization header")

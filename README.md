@@ -8,6 +8,7 @@ A secure authentication proxy that verifies GitHub Actions OIDC tokens before fo
 
 - **IP Bypass List**: Allow requests from specific IP addresses/CIDR ranges without authentication
 - **OIDC Authentication**: Verify GitHub Actions OIDC tokens for non-bypassed requests
+- **Basic Authentication**: Support for Basic auth with username `bearer` and JWT token as password (for GOPROXY URL-embedded credentials)
 - **Repository Filtering**: Control access to specific repositories using pattern matching
 - **Reverse Proxy**: Forward authenticated requests to a backend service (Go module proxy, API, etc.)
 
@@ -208,7 +209,7 @@ jobs:
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
-      - name: Configure Go proxy
+      - name: Configure Go proxy (Option 1: GOAUTH)
         env:
           TOKEN: ${{ steps.token.outputs.token }}
         run: |
@@ -218,6 +219,23 @@ jobs:
       - name: Build
         run: go build
 ```
+
+**Alternative: URL-embedded credentials (Basic Auth)**
+
+For environments where `GOAUTH` is not available or for simpler configuration, you can embed credentials directly in the GOPROXY URL. The proxy accepts Basic auth with username `bearer` and the JWT token as the password:
+
+```yaml
+      - name: Configure Go proxy (Option 2: URL-embedded)
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          echo "GOPROXY=https://bearer:${TOKEN}@goproxy.example.com" >> $GITHUB_ENV
+
+      - name: Build
+        run: go build
+```
+
+**Note:** When using URL-embedded credentials, Go automatically sends them as Basic authentication headers.
 
 ## Security Considerations
 
@@ -241,7 +259,12 @@ curl http://localhost:8080/golang.org/x/text/@v/list
 # Without token (should return 401)
 curl http://localhost:8080/github.com/myorg/myrepo/@v/list
 
-# With valid token (should return 200 or 403 depending on repository match)
+# With valid Bearer token (should return 200 or 403 depending on repository match)
 curl -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8080/github.com/myorg/myrepo/@v/list
+
+# With Basic auth (username "bearer", password is the JWT token)
+BASIC_AUTH=$(echo -n "bearer:$TOKEN" | base64)
+curl -H "Authorization: Basic $BASIC_AUTH" \
      http://localhost:8080/github.com/myorg/myrepo/@v/list
 ```
